@@ -28,8 +28,8 @@ def take_snippets_at_pos(sample, keys, start_pos, input_shape, num_samples):
     # Take a sample and extract snippets from the audio signals at the given start positions with the given number of samples width
     batch = dict()
     for key in keys:
-        batch[key] = tf.map_fn(lambda pos: sample[key][pos:pos + input_shape[0], :], start_pos, dtype=tf.float32)
-        batch[key].set_shape([num_samples, input_shape[0], input_shape[1]])
+        batch[key] = tf.map_fn(lambda pos: sample[key][:, pos:pos + input_shape[0], :], start_pos, dtype=tf.float32)
+        batch[key].set_shape([num_samples, 648, -1, 2])
 
     return tf.data.Dataset.from_tensor_slices(batch)
 
@@ -83,7 +83,11 @@ def write_records(sample_list, model_config, input_shape, output_shape, records_
             assert (audio.shape[1] == channels)
 
         # Write to TFrecords the flattened version
-        feature = {key: _floats_feature(audio_tracks[key]) for key in all_keys}
+        if model_config["task"] != "specif":
+            feature = {key: _floats_feature(audio_tracks[key]) for key in all_keys}
+        else:
+            feature = {key: _floats_feature(Utils.cqt(audio=audio_tracks[key])) for key in all_keys}
+            # feature["shape"] = _int64_feature(np.array([648,2,-1]))
         feature["length"] = _int64_feature(length)
         feature["channels"] = _int64_feature(channels)
         sample = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -92,12 +96,13 @@ def write_records(sample_list, model_config, input_shape, output_shape, records_
     for writer in writers:
         writer.close()
 
-def parse_record(example_proto, source_names, shape):
+def parse_record(example_proto, source_names, shape, my=False):
     # Parse record from TFRecord file
 
     all_names = source_names + ["mix"]
 
     features = {key : tf.FixedLenSequenceFeature([], allow_missing=True, dtype=tf.float32) for key in all_names}
+    # features["shape"] = tf.FixedLenFeature([], tf.int64)
     features["length"] = tf.FixedLenFeature([], tf.int64)
     features["channels"] = tf.FixedLenFeature([], tf.int64)
 
@@ -106,9 +111,13 @@ def parse_record(example_proto, source_names, shape):
     # Reshape
     length = tf.cast(parsed_features["length"], tf.int64)
     channels = tf.constant(shape[-1], tf.int64) #tf.cast(parsed_features["channels"], tf.int64)
+    # fshape = tf.cast(parsed_features["shape"], tf.int64)
     sample = dict()
     for key in all_names:
-        sample[key] = tf.reshape(parsed_features[key], tf.stack([length, channels]))
+        if not my:
+            sample[key] = tf.reshape(parsed_features[key], tf.stack([length, channels]))
+        else:
+            sample[key] = tf.reshape(parsed_features[key], tf.stack([648,-1,2])) # 648*t*2
     sample["length"] = length
     sample["channels"] = channels
 
@@ -190,7 +199,7 @@ def get_dataset(model_config, input_shape, output_shape, partition):
     records_files = glob.glob(os.path.join(dataset_folder, "*.tfrecords"))
     random.shuffle(records_files)
     dataset = tf.data.TFRecordDataset(records_files)
-    dataset = dataset.map(lambda x : parse_record(x, model_config["source_names"], input_shape[1:]), num_parallel_calls=model_config["num_workers"])
+    dataset = dataset.map(lambda x : parse_record(x, model_config["source_names"], input_shape[1:], model_config["task"] == "specif"), num_parallel_calls=model_config["num_workers"])
     dataset = dataset.prefetch(10)
 
     # Take random samples from each song

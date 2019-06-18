@@ -51,17 +51,19 @@ def train(model_config, experiment_id, load_model=None):
     for key in model_config["source_names"]:
         real_source = batch[key]
         sep_source = separator_sources[key]
+        sep_source.summary()
 
         if model_config["network"] == "unet_spectrogram" and not model_config["raw_audio_loss"]:
-            window = functools.partial(window_ops.hann_window, periodic=True)
-            stfts = tf.contrib.signal.stft(tf.squeeze(real_source, 2), frame_length=1024, frame_step=768,
-                                           fft_length=1024, window_fn=window)
-            real_mag = tf.abs(stfts)
-            separator_loss += tf.reduce_mean(tf.abs(real_mag - sep_source))
-        else:
+        #     window = functools.partial(window_ops.hann_window, periodic=True)
+        #     stfts = tf.contrib.signal.stft(tf.squeeze(real_source, 2), frame_length=1024, frame_step=768,
+        #                                    fft_length=1024, window_fn=window)
+        #     real_mag = tf.abs(stfts)
+        #     separator_loss += tf.reduce_mean(tf.abs(real_mag - sep_source))
+        # else:
             separator_loss += tf.reduce_mean(tf.square(real_source - sep_source))
     separator_loss = separator_loss / float(model_config["num_sources"]) # Normalise by number of sources
-
+    exit(1)
+    
     # TRAINING CONTROL VARIABLES
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False, dtype=tf.int64)
     increment_global_step = tf.assign(global_step, global_step + 1)

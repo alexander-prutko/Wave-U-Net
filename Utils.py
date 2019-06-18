@@ -2,6 +2,25 @@ import tensorflow as tf
 import numpy as np
 import librosa
 
+def phase_to_if(y_cqt_phase):
+    return y_cqt_phase
+
+def cqt(audio, resampling_factor=1, freqs_per_note=6, n_octaves=9, hop_length=256):
+    keys = 12
+    fk = 1
+    bins_per_octave = keys*freqs_per_note
+    sr_resampled = sr*resampling_factor
+    n_bins = n_octaves*keys*freqs_per_note
+    if resampling_factor != 1:
+        y_resampled = librosa.resample(y, sr, sr_resampled)
+    else:
+        y_resampled = y
+    y_cqt = librosa.cqt(y_resampled, sr=sr_resampled, bins_per_octave=bins_per_octave, n_bins=n_bins, hop_length=hop_length, filter_scale=1/fk)
+    y_cqt_abs = np.log1p(np.abs(y_cqt))
+    y_cqt_phase = np.angle(y_cqt)
+    y_cqt_if = (phase_to_if(y_cqt_phase) - np.pi)/np.pi
+    return np.vstack((y_cqt_abs, y_cqt_if)).transpose([2,0,1]) # 648*t*2, not 2*648*t
+
 def getTrainableVariables(tag=""):
     return [v for v in tf.trainable_variables() if tag in v.name]
 

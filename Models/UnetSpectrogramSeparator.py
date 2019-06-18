@@ -52,14 +52,14 @@ class UnetSpectrogramSeparator:
         inv_window = tf.contrib.signal.inverse_stft_window_fn(self.hop, forward_window_fn=window)
         with tf.variable_scope("separator", reuse=reuse):
             # Compute spectrogram
-            assert(input.get_shape().as_list()[2] == 1) # Model works ONLY on mono
-            stfts = tf.contrib.signal.stft(tf.squeeze(input, 2), frame_length=self.frame_len, frame_step=self.hop, fft_length=self.frame_len, window_fn=window)
-            mix_mag = tf.abs(stfts)
-            mix_angle = tf.angle(stfts)
+            # assert(input.get_shape().as_list()[2] == 1) # Model works ONLY on mono
+            # stfts = tf.contrib.signal.stft(tf.squeeze(input, 2), frame_length=self.frame_len, frame_step=self.hop, fft_length=self.frame_len, window_fn=window)
+            # mix_mag = input[:,:,:,0]#tf.abs(stfts) N*648*t
+            # mix_angle = input[:,:,:,1]#tf.angle(stfts)
 
             # Input for network
-            mix_mag_norm = tf.log1p(tf.expand_dims(mix_mag, 3))
-            mix_mag_norm = mix_mag_norm[:,:,:-1,:] # Cut off last frequency bin to make number of frequency bins divisible by 2
+            # mix_mag_norm = tf.log1p(tf.expand_dims(mix_mag, 3))
+            mix_mag_norm = mix_mag_norm[:,:-8,:,:] # Cut off last frequency bin to make number of frequency bins divisible by 2 [N,640,t,2]
 
             mags = dict()
             for name in self.source_names: # One U-Net for each source as per Jansson et al

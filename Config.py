@@ -159,3 +159,17 @@ def unet_spectrogram_l1():
         "num_initial_filters" : 16,
         "raw_audio_loss" : False
     }
+
+@config_ingredient.named_config
+def specif():
+    model_config = {
+        "batch_size": 4, # Less output since model is so big.
+
+        "network" : "unet_spectrogram",
+        "num_layers" : 6,
+        "expected_sr" : 8192,
+        "num_frames" : 768 * 127 + 1024, # hop_size * (time_frames_of_spectrogram_input - 1) + fft_length
+        "duration" : 13,
+        "num_initial_filters" : 16,
+        "raw_audio_loss" : False
+    }    
